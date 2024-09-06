@@ -2,11 +2,9 @@
 include 'cookie-check.php';
 include "db.php";
 
-// Get the invoice ID from the URL
 if (isset($_GET['invoice_id'])) {
     $invoice_id = $_GET['invoice_id'];
 
-    // Fetch the invoice details
     $invoice_stmt = $pdo->prepare("SELECT i.*, c.cust_name, c.cust_email_id, c.cust_mob_no 
                                    FROM invoices i
                                    JOIN customer_mst c ON i.customer_id = c.cust_id
@@ -14,7 +12,6 @@ if (isset($_GET['invoice_id'])) {
     $invoice_stmt->execute([$invoice_id]);
     $invoice = $invoice_stmt->fetch(PDO::FETCH_ASSOC);
 
-    // Fetch the invoice items
     $items_stmt = $pdo->prepare("SELECT ii.*, p.product_name 
                                  FROM invoice_items ii
                                  JOIN product_mst p ON ii.product_id = p.product_id

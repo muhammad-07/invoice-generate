@@ -1,36 +1,30 @@
 <?php
 session_start();
 include 'cookie-check.php';
-include 'db.php'; // Include the database connection
+include 'db.php';
 
-// Fetch customers
 $stmt_customers = $pdo->query("SELECT cust_id, cust_name FROM customer_mst ORDER BY cust_name ASC");
 $customers = $stmt_customers->fetchAll();
 
-// Fetch products
 $stmt_products = $pdo->query("SELECT product_id, product_name, product_stock FROM product_mst ORDER BY product_name ASC");
 $products = $stmt_products->fetchAll();
 
 $alert = '';
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    // Get the invoice data from the form
     $invoice_number = $_POST['invoice_number'];
     $invoice_date = $_POST['invoice_date'];
     $customer_id = $_POST['customer_id'];
     $net_amount = $_POST['net_amount'];
     $remarks = $_POST['remarks'];
 
-    // Get the product data from the form (arrays)
     $products = $_POST['product'];
     $quantities = $_POST['quantity'];
     $rates = $_POST['rate'];
     // $invoice_id = $_POST['invoice_number'];
 
-    // Start a transaction to ensure atomicity
     $pdo->beginTransaction();
 
     try {
-        // Insert into the invoices table
         $invoice_stmt = $pdo->prepare("INSERT INTO invoices (invoice_number, invoice_date, customer_id, net_amount, remarks) 
                                         VALUES (?, ?, ?, ?, ?)");
         $invoice_stmt->execute([$invoice_number, $invoice_date, $customer_id, $net_amount, $remarks]);
@@ -38,11 +32,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         $invoice_id = $pdo->lastInsertId();
 
-        // Insert each product into the invoice_items table
         $item_stmt = $pdo->prepare("INSERT INTO invoice_items (invoice_id, product_id, quantity, rate, amount) 
                                     VALUES (?, ?, ?, ?, ?)");
 
-        // Loop through the products and insert each item
         foreach ($products as $index => $product_id) {
             $quantity = $quantities[$index];
             $rate = $rates[$index];
@@ -51,7 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $item_stmt->execute([$invoice_id, $product_id, $quantity, $rate, $amount]);
         }
 
-        // Commit the transaction
         $pdo->commit();
 
         header("Location: preview-invoice.php?invoice_id=" . $invoice_id);
@@ -59,7 +50,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         // $msg = "Invoice generated successfully with Invoice ID: " . $invoice_id;
         // $alert = '<div class="alert alert-primary" role="alert">'.$msg.'</div>';
     } catch (Exception $e) {
-        // Rollback transaction if an error occurs
         $pdo->rollBack();
         die("Failed to generate invoice: " . $e->getMessage());
     }
@@ -105,7 +95,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
 
 
-                <!-- Invoice Date -->
                 <div class="col-md-4">
                     <div class="form-group">
                         <label for="invoice_date">Invoice Date</label>
@@ -114,7 +103,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     </div>
                 </div>
 
-                <!-- Invoice Number (auto-generated) -->
                 <div class="col-md-4">
                     <div class="form-group">
                         <label for="invoice_number">Invoice Number</label>
@@ -127,7 +115,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             </div>
 
-            <!-- Product rows dynamically added with "Add More Products" button -->
             <div id="productList">
                 <div class="form-row product-row">
                     <div class="form-group col-md-3">
@@ -161,58 +148,46 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         <input type="text" name="description[]" class="form-control">
                     </div>
 
-                    <!-- Remove button -->
                     <div class="form-group col-md-1">
                         <button type="button" class="btn btn-danger remove-product-row mt-4">Remove</button>
                     </div>
                 </div>
             </div>
 
-            <!-- Add More Products button -->
             <button type="button" class="btn btn-secondary" data-toggle="tooltip" data-placement="top"
                 title="Enter quantity" id="addMoreProducts">Add More Products</button>
 
-            <!-- Net Amount -->
             <div class="form-group mt-4">
                 <label for="net_amount">Net Amount</label>
                 <input type="number" name="net_amount" id="net_amount" class="form-control" required readonly>
                 <div class="invalid-feedback">Net amount is required.</div>
             </div>
 
-            <!-- Remarks -->
             <div class="form-group">
                 <label for="remarks">Remarks</label>
                 <textarea name="remarks" id="remarks" class="form-control" rows="3"></textarea>
             </div>
 
-            <!-- Submit button -->
             <button type="submit" class="btn btn-primary mt-3">Generate Invoice</button>
         </form>
     </div>
 
     <script>
-        // Cloning the product row
         $(document).ready(function () {
             $('[data-toggle="tooltip"]').tooltip();
-            // Click event to add new product row
             $('#addMoreProducts').on('click', function () {
-                // Clone the first product row
                 var clonedRow = $('.product-row:first').clone();
 
-                // Clear values of cloned row
-                clonedRow.find('input').val('');  // Clear text inputs
-                clonedRow.find('select').val(''); // Clear select inputs
+                clonedRow.find('input').val('');
+                clonedRow.find('select').val('');
 
                 clonedRow.find('select').removeClass('is-invalid');
                 clonedRow.find('input').removeClass('is-invalid');
 
-                // Append the cloned row after the last product row
                 $('#productList').append(clonedRow);
             });
 
-            // Click event to remove a product row
             $(document).on('click', '.remove-product-row', function () {
-                // Only remove the row if there is more than one product row
                 if ($('.product-row').length > 1) {
                     $(this).closest('.product-row').remove();
                 } else {
@@ -220,7 +195,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
             });
 
-            // Automatically calculate the net amount based on products and quantities
             $(document).on('input', 'input[name="quantity[]"], input[name="rate[]"]', function () {
                 calculateNetAmount();
             });
@@ -246,11 +220,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     alert('Please resolve the errors.');
                 }
 
-                // Check validity of the form
                 if (form.checkValidity() === false) {
                     event.stopPropagation();
                 } else {
-                    // Submit form if validation passes
                     form.submit();
                 }
 
@@ -261,12 +233,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 
 
-            // STOCK VALIDATION
+
             $(document).on('input', '.quantity-input', function () {
                 thisinput = $(this);
-                // var rowId = $(this).attr('id').split('_')[1]; // Get the row id from the input field id
-                var productId = $(this).closest(".form-row").find(".product-input").val();  // Get the selected product ID
-                var quantity = $(this).val();  // Get the entered quantity
+
+                var productId = $(this).closest(".form-row").find(".product-input").val();
+                var quantity = $(this).val();
 
                 validateStock(thisinput, productId, quantity);
             });
@@ -276,18 +248,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 validateProductSelection();
 
                 thisinput = $(this);
-                // var rowId = $(this).attr('id').split('_')[1]; // Get the row id from the input field id
-                var quantity = $(this).closest(".form-row").find(".quantity-input").val();  // Get the selected product ID
-                var productId = $(this).val();  // Get the entered quantity
+
+                var quantity = $(this).closest(".form-row").find(".quantity-input").val();
+                var productId = $(this).val();
 
                 validateStock(thisinput, productId, quantity);
             });
             var stockValid = false;
             function validateStock(thisinput, productId, quantity) {
-thisinput.removeClass('is-invalid');
+                thisinput.removeClass('is-invalid');
                 if (productId && quantity) {
                     $.ajax({
-                        url: 'ajax/check_stock.php', // PHP script for validation
+                        url: 'ajax/check_stock.php',
                         type: 'POST',
                         data: {
                             product_id: productId,
@@ -310,16 +282,13 @@ thisinput.removeClass('is-invalid');
             }
 
             function validateProductSelection() {
-                // Create an array to store selected product IDs
                 var selectedProducts = [];
                 var duplicateFound = false;
 
-                // Loop through each product select dropdown
                 $('.product-input').each(function () {
                     var productValue = $(this).val();
                     $(this).removeClass('is-invalid');
                     if (productValue) {
-                        // Check if the product is already selected in another dropdown
                         if (selectedProducts.includes(productValue)) {
                             console.log('Duplicate found: ' + productValue);
                             $(this).addClass('is-invalid');
@@ -327,10 +296,8 @@ thisinput.removeClass('is-invalid');
                             $(this).prop('selectedIndex', 0);
                             duplicateFound = true;
                         } else {
-                            // Remove error class if no duplicates
                             $(this).removeClass('is-invalid');
                             $(this).siblings('.invalid-feedback').text('');
-                            // Add product to the selected array
                             selectedProducts.push(productValue);
                         }
                     }
